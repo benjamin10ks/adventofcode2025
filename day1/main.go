@@ -7,91 +7,51 @@ import (
 	"strconv"
 )
 
-type Node struct {
-	value int
-	next  *Node
-	prev  *Node
+type Dial struct {
+	vals []int
+	pos  int
+	size int
 }
 
-type CircularDoublyLinkedList struct {
-	head *Node
+func NewDial(size int) *Dial {
+	vals := make([]int, size)
+	for i := 0; i < size; i++ {
+		vals[i] = i
+	}
+	return &Dial{vals: vals, pos: 0, size: size}
 }
 
-func (c *CircularDoublyLinkedList) Insert(value int) {
-	newNode := &Node{value: value}
-
-	if c.head == nil {
-		newNode.next = newNode
-		newNode.prev = newNode
-		c.head = newNode
-		return
+func (d *Dial) Move(steps int) (crossedZero bool) {
+	startPos := d.pos
+	endPos := (d.pos + steps) % d.size
+	if endPos < 0 {
+		endPos += d.size
 	}
 
-	tail := c.head.prev
+	if steps > 0 && startPos > endPos {
+		crossedZero = true
+	} else if steps < 0 && startPos < endPos {
+		crossedZero = true
+	}
 
-	tail.next = newNode
-	newNode.prev = tail
-	newNode.next = c.head
-	c.head.prev = newNode
+	d.pos = endPos
+	return crossedZero
 }
 
-// TraverseN moves n steps from the given starting node
-// n > 0 moves forward; n < 0 moves backward
-func (c *CircularDoublyLinkedList) TraverseN(start *Node, n int) *Node {
-	if start == nil || c.head == nil {
-		return nil
-	}
-
-	curr := start
-
-	if n > 0 {
-		for i := 0; i < n; i++ {
-			curr = curr.next
-		}
-	} else {
-		for i := 0; i < -n; i++ {
-			curr = curr.prev
-		}
-	}
-
-	return curr
-}
-
-func (c *CircularDoublyLinkedList) Print() {
-	if c.head == nil {
-		fmt.Println("empty")
-		return
-	}
-
-	fmt.Print(c.head.value, " ")
-	curr := c.head.next
-
-	for curr != c.head {
-		fmt.Print(curr.value, " ")
-		curr = curr.next
-	}
-	fmt.Println()
+func (d *Dial) Value() int {
+	return d.vals[d.pos]
 }
 
 func main() {
 	f, err := os.Open("input.txt")
 	if err != nil {
-		fmt.Println("Error opening file", err)
+		fmt.Println("Error opening file:", err)
 		return
 	}
-	defer func() {
-		err = f.Close()
-		if err != nil {
-			fmt.Println("Error closing file", err)
-			return
-		}
-	}()
+	defer f.Close()
 
-	dial := &CircularDoublyLinkedList{}
-	for i := range 100 {
-		dial.Insert(i)
-	}
-	dial.head = dial.TraverseN(dial.head, 50)
+	dial := NewDial(100)
+	dial.pos = 50
 
 	password := 0
 	scanner := bufio.NewScanner(f)
@@ -100,27 +60,28 @@ func main() {
 		dir := line[0]
 		amount, err := strconv.Atoi(line[1:])
 		if err != nil {
-			fmt.Println("invalid amount: ", err)
+			fmt.Println("invalid amount:", err)
+			continue
 		}
+
+		var crossed bool
 		switch dir {
 		case 'L':
 			amount = -amount
-			dial.head = dial.TraverseN(dial.head, amount)
-			if dial.head.value == 0 {
-				password++
-			}
+			crossed = dial.Move(amount)
 		case 'R':
-			dial.head = dial.TraverseN(dial.head, amount)
-			if dial.head.value == 0 {
-				password++
-			}
+			crossed = dial.Move(amount)
 		default:
-			fmt.Println("invalid direction")
+			fmt.Println("invalid direction:", string(dir))
 			continue
 		}
-	}
-	fmt.Println("Password:", password)
 
+		if crossed || dial.Value() == 0 {
+			password++
+		}
+	}
+
+	fmt.Println("Password:", password)
 	if err := scanner.Err(); err != nil {
 		fmt.Println("Error reading file", err)
 	}
